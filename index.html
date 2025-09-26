@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cardápio Exclusivo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Lato', sans-serif; }
+        h1, h2, h3 { font-family: 'Playfair Display', serif; }
+        .card-selected {
+            outline: 4px solid #ea580c;
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+<body class="bg-stone-900 text-white">
+
+    <nav class="bg-black bg-opacity-50 p-4 flex justify-between items-center sticky top-0 z-30">
+        <h1 class="text-2xl text-orange-500">Jantar Exclusivo</h1>
+        <div id="nav-links">
+            <a href="admin.html" class="text-stone-300 hover:text-orange-500 mr-4">Admin</a>
+            <a href="vitrine.html" class="text-stone-300 hover:text-orange-500">Vitrine</a>
+            <button id="change-user-btn" class="hidden ml-4 bg-orange-600 px-3 py-1 rounded-md text-sm hover:bg-orange-700">Trocar Usuário</button>
+        </div>
+    </nav>
+    
+    <main class="container mx-auto p-8">
+        <!-- SEÇÃO DE LOGIN DE USUÁRIO -->
+        <section id="user-login-section" class="text-center">
+            <h2 class="text-4xl mb-8">Bem-vindo(a)</h2>
+            <p class="mb-8 text-stone-400">Por favor, selecione seu nome para continuar.</p>
+            <div id="user-list" class="flex flex-wrap justify-center gap-4">
+                <!-- Botões de usuário serão carregados aqui -->
+                <p>Carregando usuários...</p>
+            </div>
+        </section>
+
+        <!-- SEÇÃO PRINCIPAL DO USUÁRIO LOGADO -->
+        <section id="user-main-section" class="hidden">
+            <h2 class="text-4xl mb-2">Olá, <span id="welcome-user-name" class="text-orange-500"></span>!</h2>
+            <p id="jantar-date-display" class="mb-8 text-stone-400">Confira o cardápio para o nosso jantar.</p>
+            
+            <div id="user-content-area">
+                <!-- Conteúdo dinâmico (escolha de menu ou avaliação) -->
+            </div>
+        </section>
+
+    </main>
+    
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, getDoc, query, where, getDocs, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        const firebaseConfig = {
+             apiKey: "AIzaSyD89Q_VbBBshMKOV53oT_4Nyhd2d_ZJ2bw",
+            authDomain: "cardapio-abc1e.firebaseapp.com",
+            projectId: "cardapio-abc1e",
+            storageBucket: "cardapio-abc1e.appspot.com",
+            messagingSenderId: "1052047749183",
+            appId: "1:1052047749183:web:1baac736b27f0effed088a",
+            measurementId: "G-VZN8FLXRCN"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        const userLoginSection = document.getElementById('user-login-section');
+        const userMainSection = document.getElementById('user-main-section');
+        const userListDiv = document.getElementById('user-list');
+        const welcomeUserName = document.getElementById('welcome-user-name');
+        const userContentArea = document.getElementById('user-content-area');
+        const changeUserBtn = document.getElementById('change-user-btn');
+
+        let currentJantar = null;
+        let currentUser = null;
+        let unsubscribeJantar = null;
+
+        // Trocar de usuário
+        changeUserBtn.addEventListener('click', () => {
+            sessionStorage.removeItem('userId');
+            sessionStorage.removeItem('userName');
+            currentUser = null;
+            if (unsubscribeJantar) unsubscribeJantar();
+            userMainSection.classList.add('hidden');
+            userLoginSection.classList.remove('hidden');
+            changeUserBtn.classList.add('hidden');
+        });
+
+        // Carregar usuários
+        function loadUsers() {
+            onSnapshot(collection(db, 'users'), (snapshot) => {
+                let usersHtml = '';
+                snapshot.forEach(doc => {
+                    usersHtml += `<button data-id="${doc.id}" data-name="${doc.data().name}" class="user-login-btn bg-stone-800 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg transition-colors">${doc.data().name}</button>`;
+                });
+                userListDiv.innerHTML = usersHtml || '<p class="text-stone-500">Nenhum usuário cadastrado.</p>';
+            });
+        }
+        
+        // Login do usuário
+        userListDiv.addEventListener('click', (e) => {
+            if (e.target.classList.contains('user-login-btn')) {
+                currentUser = { id: e.target.dataset.id, name: e.target.dataset.name };
+                sessionStorage.setItem('userId', currentUser.id);
+                sessionStorage.setItem('userName', currentUser.name);
+                showUserContent();
+            }
+        });
+
+        async function showUserContent() {
+            if (!currentUser) return;
+
+            welcomeUserName.textContent = currentUser.name;
+            userLoginSection.classList.add('hidden');
+            userMainSection.classList.remove('hidden');
+            changeUserBtn.classList.remove('hidden');
+            userContentArea.innerHTML = '<p>Verificando convites...</p>';
+
+            const jantaresRef = collection(db, 'jantares');
+            const q = query(jantaresRef, where("convidados", "array-contains", currentUser.id));
+            
+            if (unsubscribeJantar) unsubscribeJantar();
+
+            unsubscribeJantar = onSnapshot(q, async (snapshot) => {
+                const jantaresAtivos = snapshot.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(j => ['agendado','em-sessao','finalizado'].includes(j.status));
+                
+                if (jantaresAtivos.length === 0) {
+                     userContentArea.innerHTML = '<p class="text-center text-xl">Nenhum jantar ativo no momento. Volte mais tarde!</p>';
+                     document.getElementById('jantar-date-display').textContent = 'Aguardando um novo evento.'
+                     return;
+                }
+                
+                // Pega o jantar mais recente (em-sessao tem prioridade sobre finalizado)
+                const prioridade = { 'em-sessao': 0, 'agendado': 1, 'finalizado': 2 };
+currentJantar = jantaresAtivos
+  .sort((a,b) => (prioridade[a.status] - prioridade[b.status]) || (new Date(b.date) - new Date(a.date)))[0];
+                const date = new Date(currentJantar.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'});
+                document.getElementById('jantar-date-display').textContent = `Cardápio para o nosso jantar em ${date}.`;
+                
+                // Verifica o estado (escolha, avaliação ou aguardando)
+                const escolhaRef = doc(db, "jantares", currentJantar.id, "escolhas", currentUser.id);
+                const avaliacaoRef = doc(db, "jantares", currentJantar.id, "avaliacoes", currentUser.id);
+                const [escolhaSnap, avaliacaoSnap] = await Promise.all([getDoc(escolhaRef), getDoc(avaliacaoRef)]);
+
+                if (['agendado','em-sessao'].includes(currentJantar.status)) {
+                    if (escolhaSnap.exists()) {
+                        renderAguardandoJantar();
+                    } else {
+                        renderMenuSelection();
+                    }
+                } else if (currentJantar.status === 'finalizado') {
+                     if (avaliacaoSnap.exists()) {
+                        renderObrigado();
+                    } else {
+                        renderAvaliacao(escolhaSnap.data());
+                    }
+                }
+            });
+        }
+        
+        function renderMenuCard(item, type, isSelected = false) {
+             if (!item || !item.nome) return '';
+             const selectedClass = isSelected ? 'card-selected' : '';
+             return `
+                <div class="menu-card bg-stone-800 rounded-lg overflow-hidden shadow-lg cursor-pointer transform hover:scale-105 transition-transform ${selectedClass}" data-type="${type}" data-item-name="${item.nome}">
+                    <img class="w-full h-48 object-cover" src="${item.foto || 'https://placehold.co/600x400/1c1917/333?text=Prato'}" alt="${item.nome}">
+                    <div class="p-4">
+                        <h4 class="font-bold text-xl mb-2">${item.nome}</h4>
+                        <p class="text-stone-400 text-sm">${item.descricao}</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderMenuSelection() {
+            const menu = currentJantar.menu;
+            let html = `
+                <div class="space-y-12">
+                    <div>
+                        <h3 class="text-3xl mb-6 text-center">Entrada</h3>
+                        <div id="entrada-options" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            ${(menu.entrada || []).map(item => renderMenuCard(item, 'entrada')).join('')}
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-3xl mb-6 text-center">Prato Principal</h3>
+                        <div id="principal-options" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            ${(menu.principal || []).map(item => renderMenuCard(item, 'principal')).join('')}
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-3xl mb-6 text-center">Sobremesa</h3>
+                        <div id="sobremesa-options" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            ${(menu.sobremesa || []).map(item => renderMenuCard(item, 'sobremesa')).join('')}
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center mt-12">
+                    <button id="confirmar-escolhas-btn" class="bg-orange-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-orange-700 transition-colors text-lg disabled:bg-gray-500" disabled>Confirmar Escolhas</button>
+                </div>
+            `;
+            userContentArea.innerHTML = html;
+        }
+
+        function renderAguardandoJantar() {
+            userContentArea.innerHTML = `
+                <div class="text-center bg-stone-800 p-8 rounded-lg">
+                    <h3 class="text-3xl mb-4">Suas escolhas foram registradas!</h3>
+                    <p class="text-stone-400">Agora é só aguardar o dia do nosso jantar. Após o evento, você poderá deixar sua avaliação aqui.</p>
+                </div>
+            `;
+        }
+
+        function renderAvaliacao(escolhas) {
+            if (!escolhas) {
+                userContentArea.innerHTML = `<p>Ocorreu um erro ao carregar suas escolhas para avaliação.</p>`;
+                return;
+            }
+             let html = `
+                <div class="bg-stone-800 p-8 rounded-lg">
+                    <h3 class="text-3xl mb-2">Avalie o Jantar</h3>
+                    <p class="text-stone-400 mb-8">Sua opinião é muito importante para nós!</p>
+                    <form id="avaliacao-form" class="space-y-6">
+                        <!-- Entrada -->
+                        <div class="p-4 border border-stone-700 rounded-lg">
+                            <p class="font-bold text-lg">${escolhas.entrada.itemName}</p>
+                            <label class="block mt-2 mb-1 text-sm">Nota (1-10):</label>
+                            <input type="number" min="1" max="10" data-type="entrada" data-field="rating" class="w-full bg-stone-700 p-2 rounded" required>
+                            <label class="block mt-2 mb-1 text-sm">Comentário:</label>
+                            <textarea data-type="entrada" data-field="comment" rows="2" class="w-full bg-stone-700 p-2 rounded"></textarea>
+                        </div>
+                        <!-- Principal -->
+                        <div class="p-4 border border-stone-700 rounded-lg">
+                             <p class="font-bold text-lg">${escolhas.principal.itemName}</p>
+                            <label class="block mt-2 mb-1 text-sm">Nota (1-10):</label>
+                            <input type="number" min="1" max="10" data-type="principal" data-field="rating" class="w-full bg-stone-700 p-2 rounded" required>
+                            <label class="block mt-2 mb-1 text-sm">Comentário:</label>
+                            <textarea data-type="principal" data-field="comment" rows="2" class="w-full bg-stone-700 p-2 rounded"></textarea>
+                        </div>
+                        <!-- Sobremesa -->
+                         <div class="p-4 border border-stone-700 rounded-lg">
+                             <p class="font-bold text-lg">${escolhas.sobremesa.itemName}</p>
+                            <label class="block mt-2 mb-1 text-sm">Nota (1-10):</label>
+                            <input type="number" min="1" max="10" data-type="sobremesa" data-field="rating" class="w-full bg-stone-700 p-2 rounded" required>
+                            <label class="block mt-2 mb-1 text-sm">Comentário:</label>
+                            <textarea data-type="sobremesa" data-field="comment" rows="2" class="w-full bg-stone-700 p-2 rounded"></textarea>
+                        </div>
+                        <div class="text-center pt-4">
+                            <button type="submit" class="bg-orange-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-orange-700 transition-colors text-lg">Enviar Avaliação</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            userContentArea.innerHTML = html;
+        }
+
+        function renderObrigado() {
+             userContentArea.innerHTML = `
+                <div class="text-center bg-stone-800 p-8 rounded-lg">
+                    <h3 class="text-3xl mb-4">Obrigado por avaliar!</h3>
+                    <p class="text-stone-400">Sua opinião foi registrada com sucesso. Esperamos vê-lo(a) novamente em breve!</p>
+                </div>
+            `;
+        }
+
+        userContentArea.addEventListener('click', (e) => {
+            const card = e.target.closest('.menu-card');
+            if (card) {
+                const type = card.dataset.type;
+                // Desmarca outros cards do mesmo tipo
+                document.querySelectorAll(`#${type}-options .menu-card`).forEach(c => c.classList.remove('card-selected'));
+                // Marca o card clicado
+                card.classList.add('card-selected');
+                checkAllSelected();
+            }
+        });
+        
+        function checkAllSelected() {
+            const entrada = document.querySelector('#entrada-options .card-selected');
+            const principal = document.querySelector('#principal-options .card-selected');
+            const sobremesa = document.querySelector('#sobremesa-options .card-selected');
+            const btn = document.getElementById('confirmar-escolhas-btn');
+            if(btn) {
+                btn.disabled = !(entrada && principal && sobremesa);
+            }
+        }
+        
+        // --- CORREÇÃO DO BUG: Salvar escolhas na coleção 'escolhas' ---
+        async function confirmarEscolhas() {
+            const entradaCard = document.querySelector('#entrada-options .card-selected');
+            const principalCard = document.querySelector('#principal-options .card-selected');
+            const sobremesaCard = document.querySelector('#sobremesa-options .card-selected');
+
+            if (!entradaCard || !principalCard || !sobremesaCard) {
+                alert("Por favor, selecione uma opção para cada categoria.");
+                return;
+            }
+
+            const escolhas = {
+                userName: currentUser.name,
+                userId: currentUser.id,
+                entrada: { itemName: entradaCard.dataset.itemName },
+                principal: { itemName: principalCard.dataset.itemName },
+                sobremesa: { itemName: sobremesaCard.dataset.itemName }
+            };
+
+            try {
+                const escolhaRef = doc(db, "jantares", currentJantar.id, "escolhas", currentUser.id);
+                await setDoc(escolhaRef, escolhas);
+                renderAguardandoJantar();
+            } catch (error) {
+                console.error("Erro ao salvar escolhas: ", error);
+                alert("Houve um erro ao salvar suas escolhas. Tente novamente.");
+            }
+        }
+
+        async function enviarAvaliacao(e) {
+            e.preventDefault();
+            const form = e.target;
+            const avaliacaoData = {
+                 entrada: {
+                    rating: form.querySelector('[data-type="entrada"][data-field="rating"]').value,
+                    comment: form.querySelector('[data-type="entrada"][data-field="comment"]').value
+                },
+                 principal: {
+                    rating: form.querySelector('[data-type="principal"][data-field="rating"]').value,
+                    comment: form.querySelector('[data-type="principal"][data-field="comment"]').value
+                },
+                 sobremesa: {
+                    rating: form.querySelector('[data-type="sobremesa"][data-field="rating"]').value,
+                    comment: form.querySelector('[data-type="sobremesa"][data-field="comment"]').value
+                }
+            };
+            
+            // Pega os dados da escolha já existente para combinar com a avaliação
+            const escolhaRef = doc(db, "jantares", currentJantar.id, "escolhas", currentUser.id);
+            const escolhaSnap = await getDoc(escolhaRef);
+            const escolhas = escolhaSnap.data();
+
+            const finalData = {
+                ...escolhas, // userName, userId, e os itemNames
+                entrada: { ...escolhas.entrada, ...avaliacaoData.entrada },
+                principal: { ...escolhas.principal, ...avaliacaoData.principal },
+                sobremesa: { ...escolhas.sobremesa, ...avaliacaoData.sobremesa },
+            };
+
+            const avaliacaoRef = doc(db, "jantares", currentJantar.id, "avaliacoes", currentUser.id);
+            await setDoc(avaliacaoRef, finalData);
+            renderObrigado();
+        }
+
+        userContentArea.addEventListener('submit', (e) => {
+            if (e.target.id === 'avaliacao-form') {
+                enviarAvaliacao(e);
+            }
+        });
+        
+        userContentArea.addEventListener('click', (e) => {
+            if (e.target.id === 'confirmar-escolhas-btn') {
+                confirmarEscolhas();
+            }
+        });
+
+        // Inicialização
+        async function initialize() {
+            try {
+                await signInAnonymously(auth);
+                const storedUserId = sessionStorage.getItem('userId');
+                const storedUserName = sessionStorage.getItem('userName');
+
+                if (storedUserId && storedUserName) {
+                    currentUser = { id: storedUserId, name: storedUserName };
+                    showUserContent();
+                } else {
+                    loadUsers();
+                }
+
+            } catch (error) {
+                console.error("Erro na autenticação anônima: ", error);
+            }
+        }
+
+        initialize();
+
+    </script>
+</body>
+</html>
+
