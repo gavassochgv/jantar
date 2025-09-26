@@ -97,28 +97,41 @@
                             <input type="url" id="vitrine-image" placeholder="https://exemplo.com/foto.jpg" class="w-full p-2 border rounded-md">
                         </div>
                     </div>
-                    <!-- Seção do Menu (omitida para brevidade, sem alterações) -->
+                    
                     <div class="border-t pt-4">
                         <h4 class="text-xl font-bold mb-2">Cardápio</h4>
-                        <div id="menu-entrada-container" class="bg-gray-50 p-4 rounded-md mb-2">
-                            <h5 class="font-semibold text-lg mb-2">Entrada</h5>
-                            <input type="text" placeholder="Nome da Entrada" class="w-full p-2 border rounded-md mb-2" required>
-                            <textarea placeholder="Descrição da Entrada" rows="2" class="w-full p-2 border rounded-md mb-2" required></textarea>
-                            <input type="url" placeholder="URL da Foto da Entrada" class="w-full p-2 border rounded-md">
+                        <!-- ENTRADA -->
+                        <div class="bg-gray-50 p-4 rounded-md mb-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h5 class="font-semibold text-lg">Entrada</h5>
+                                <button type="button" class="add-menu-item-btn bg-blue-500 text-white px-2 py-1 text-xs rounded hover:bg-blue-600" data-type="entrada">Adicionar Opção</button>
+                            </div>
+                            <div id="entrada-items" class="space-y-3">
+                                <!-- Opções de entrada dinâmicas aqui -->
+                            </div>
                         </div>
-                        <div id="menu-principal-container" class="bg-gray-50 p-4 rounded-md mb-2">
-                            <h5 class="font-semibold text-lg mb-2">Prato Principal</h5>
-                            <input type="text" placeholder="Nome do Prato Principal" class="w-full p-2 border rounded-md mb-2" required>
-                            <textarea placeholder="Descrição do Prato Principal" rows="2" class="w-full p-2 border rounded-md mb-2" required></textarea>
-                            <input type="url" placeholder="URL da Foto do Prato Principal" class="w-full p-2 border rounded-md">
+                        <!-- PRATO PRINCIPAL -->
+                        <div class="bg-gray-50 p-4 rounded-md mb-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h5 class="font-semibold text-lg">Prato Principal</h5>
+                                <button type="button" class="add-menu-item-btn bg-blue-500 text-white px-2 py-1 text-xs rounded hover:bg-blue-600" data-type="principal">Adicionar Opção</button>
+                            </div>
+                            <div id="principal-items" class="space-y-3">
+                                <!-- Opções de prato principal dinâmicas aqui -->
+                            </div>
                         </div>
-                        <div id="menu-sobremesa-container" class="bg-gray-50 p-4 rounded-md">
-                            <h5 class="font-semibold text-lg mb-2">Sobremesa</h5>
-                            <input type="text" placeholder="Nome da Sobremesa" class="w-full p-2 border rounded-md mb-2" required>
-                            <textarea placeholder="Descrição da Sobremesa" rows="2" class="w-full p-2 border rounded-md mb-2" required></textarea>
-                            <input type="url" placeholder="URL da Foto da Sobremesa" class="w-full p-2 border rounded-md">
+                        <!-- SOBREMESA -->
+                        <div class="bg-gray-50 p-4 rounded-md">
+                             <div class="flex justify-between items-center mb-2">
+                                <h5 class="font-semibold text-lg">Sobremesa</h5>
+                                <button type="button" class="add-menu-item-btn bg-blue-500 text-white px-2 py-1 text-xs rounded hover:bg-blue-600" data-type="sobremesa">Adicionar Opção</button>
+                            </div>
+                            <div id="sobremesa-items" class="space-y-3">
+                                <!-- Opções de sobremesa dinâmicas aqui -->
+                            </div>
                         </div>
                     </div>
+
                     <div class="border-t pt-4">
                         <h4 class="text-xl font-bold mb-2">Convidar Usuários</h4>
                         <div id="invite-user-list" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto border p-2 rounded-md"></div>
@@ -131,7 +144,7 @@
             </div>
         </div>
 
-        <!-- NOVO: Modal para Gerenciar Vitrine -->
+        <!-- Modal para Gerenciar Vitrine -->
         <div id="vitrine-manage-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
             <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
                 <h3 id="vitrine-modal-title" class="text-3xl mb-6">Gerenciar Vitrine do Jantar</h3>
@@ -157,6 +170,20 @@
                 </div>
             </div>
         </div>
+
+        <!-- NOVO: Modal para Ver Escolhas -->
+        <div id="choices-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                <h3 id="choices-modal-title" class="text-3xl mb-6">Escolhas dos Clientes</h3>
+                <div id="choices-list" class="space-y-4">
+                    <!-- Escolhas serão carregadas aqui -->
+                </div>
+                <div class="flex justify-end mt-8">
+                    <button type="button" id="close-choices-modal-btn" class="bg-gray-500 text-white px-6 py-2 rounded-md hover:bg-gray-600">Fechar</button>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script type="module">
@@ -208,6 +235,12 @@
         const openCreateJantarModal = () => {
             currentEditingJantarId = null;
             jantarForm.reset();
+            // Limpa itens de menu existentes e adiciona um item inicial para cada categoria
+            ['entrada', 'principal', 'sobremesa'].forEach(type => {
+                const container = document.getElementById(`${type}-items`);
+                container.innerHTML = '';
+                addMenuItem(type);
+            });
             document.getElementById('jantar-modal-title').textContent = 'Criar Novo Jantar';
             jantarModal.classList.remove('hidden');
         };
@@ -221,7 +254,7 @@
         document.getElementById('close-jantar-modal-btn').addEventListener('click', closeJantarModal);
 
 
-        // NOVO: Lógica do modal de gerenciar vitrine
+        // Lógica do modal de gerenciar vitrine
         const vitrineManageModal = document.getElementById('vitrine-manage-modal');
         const vitrinePhotoForm = document.getElementById('vitrine-photo-form');
         const avaliacoesListDiv = document.getElementById('avaliacoes-list');
@@ -234,6 +267,13 @@
                 unsubscribeAvaliacoes(); // Limpa o listener ao fechar
             }
         };
+
+        // Lógica do modal de ver escolhas
+        const choicesModal = document.getElementById('choices-modal');
+        document.getElementById('close-choices-modal-btn').onclick = () => {
+            choicesModal.classList.add('hidden');
+        };
+
 
         // Adicionar usuário
         addUserForm.addEventListener('submit', async (e) => {
@@ -291,7 +331,7 @@
                             actions = `<button data-id="${doc.id}" class="manage-vitrine-btn bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600">Gerenciar Vitrine</button>`;
                             break;
                     }
-                    jantaresHtml += `<div class="bg-gray-50 p-4 rounded-lg shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4"><div><p class="font-bold text-lg">${new Date(jantar.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</p><p>Convidados: ${jantar.convidados ? jantar.convidados.length : 0}</p></div><div class="flex items-center gap-4"><span class="text-sm font-medium px-2 py-1 rounded-full ${statusClass}">${jantar.status}</span><div class="flex items-center gap-2">${actions}<button data-id="${doc.id}" class="edit-jantar-btn bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600">Editar</button><button data-id="${doc.id}" class="whatsapp-jantar-btn bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">WhatsApp</button><button data-id="${doc.id}" class="delete-jantar-btn bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">Excluir</button></div></div></div>`;
+                    jantaresHtml += `<div class="bg-gray-50 p-4 rounded-lg shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4"><div><p class="font-bold text-lg">${new Date(jantar.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</p><p>Convidados: ${jantar.convidados ? jantar.convidados.length : 0}</p></div><div class="flex items-center gap-4"><span class="text-sm font-medium px-2 py-1 rounded-full ${statusClass}">${jantar.status}</span><div class="flex items-center flex-wrap gap-2">${actions}<button data-id="${doc.id}" class="view-choices-btn bg-sky-500 text-white px-3 py-1 rounded hover:bg-sky-600">Ver Escolhas</button><button data-id="${doc.id}" class="edit-jantar-btn bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600">Editar</button><button data-id="${doc.id}" class="whatsapp-jantar-btn bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">WhatsApp</button><button data-id="${doc.id}" class="delete-jantar-btn bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">Excluir</button></div></div></div>`;
                 });
                 jantarListDiv.innerHTML = jantaresHtml || '<p>Nenhum jantar criado ainda.</p>';
             });
@@ -307,15 +347,27 @@
         // Salvar ou Atualizar Jantar
         jantarForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const getMenuItems = (containerId) => {
-                const c = document.getElementById(containerId);
-                return [{ nome: c.querySelector('input[type="text"]').value, descricao: c.querySelector('textarea').value, foto: c.querySelector('input[type="url"]').value }];
+            const getMenuItems = (type) => {
+                const items = [];
+                document.querySelectorAll(`#${type}-items .menu-item`).forEach(itemDiv => {
+                    const nome = itemDiv.querySelector('input[data-field="nome"]').value;
+                    const descricao = itemDiv.querySelector('textarea[data-field="descricao"]').value;
+                    const foto = itemDiv.querySelector('input[data-field="foto"]').value;
+                    if (nome) { // Only add if name is present
+                        items.push({ nome, descricao, foto });
+                    }
+                });
+                return items;
             };
             const invitedUsers = Array.from(document.querySelectorAll('#invite-user-list input:checked')).map(cb => cb.value);
             const jantarData = {
                 date: document.getElementById('jantar-date').value,
                 vitrineImage: document.getElementById('vitrine-image').value,
-                menu: { entrada: getMenuItems('menu-entrada-container'), principal: getMenuItems('menu-principal-container'), sobremesa: getMenuItems('menu-sobremesa-container') },
+                menu: { 
+                    entrada: getMenuItems('entrada'), 
+                    principal: getMenuItems('principal'), 
+                    sobremesa: getMenuItems('sobremesa') 
+                },
                 convidados: invitedUsers,
             };
 
@@ -342,20 +394,20 @@
             document.getElementById('jantar-date').value = jantarData.date;
             document.getElementById('vitrine-image').value = jantarData.vitrineImage || '';
 
-            const populateMenuItem = (containerId, itemData) => {
-                const container = document.getElementById(containerId);
-                if (itemData && itemData[0]) {
-                    container.querySelector('input[type="text"]').value = itemData[0].nome || '';
-                    container.querySelector('textarea').value = itemData[0].descricao || '';
-                    container.querySelector('input[type="url"]').value = itemData[0].foto || '';
+            // Limpa e popula os itens de menu
+            ['entrada', 'principal', 'sobremesa'].forEach(type => {
+                const container = document.getElementById(`${type}-items`);
+                container.innerHTML = '';
+                const items = jantarData.menu[type] || [];
+                if (items.length > 0) {
+                    items.forEach(itemData => addMenuItem(type, itemData));
+                } else {
+                     addMenuItem(type); // Add at least one empty item if none exist
                 }
-            };
-            populateMenuItem('menu-entrada-container', jantarData.menu.entrada);
-            populateMenuItem('menu-principal-container', jantarData.menu.principal);
-            populateMenuItem('menu-sobremesa-container', jantarData.menu.sobremesa);
+            });
 
             document.querySelectorAll('#invite-user-list input[name="convidado"]').forEach(checkbox => {
-                checkbox.checked = jantarData.convidados.includes(checkbox.value);
+                checkbox.checked = (jantarData.convidados || []).includes(checkbox.value);
             });
             jantarModal.classList.remove('hidden');
         };
@@ -385,6 +437,11 @@
                 return;
             }
 
+            if (target.classList.contains('view-choices-btn')) {
+                openChoicesModal(id);
+                return;
+            }
+
             let newStatus = '';
             if (target.classList.contains('start-jantar-btn')) newStatus = 'em-sessao';
             if (target.classList.contains('finish-jantar-btn')) newStatus = 'finalizado';
@@ -395,16 +452,58 @@
                 openVitrineManagementModal(id);
             }
             if (target.classList.contains('delete-jantar-btn')) {
-                if (confirm('Tem certeza que deseja excluir este jantar? Todas as avaliações relacionadas também serão excluídas.')) {
-                    const avaliacoesRef = collection(db, 'jantares', id, 'avaliacoes');
-                    const avaliacoesSnapshot = await getDocs(avaliacoesRef);
-                    const deletePromises = avaliacoesSnapshot.docs.map(doc => deleteDoc(doc.ref));
-                    await Promise.all(deletePromises);
+                if (confirm('Tem certeza que deseja excluir este jantar? Todas as avaliações e escolhas relacionadas também serão excluídas.')) {
+                    const subcollections = ['avaliacoes', 'escolhas'];
+                    for (const sub of subcollections) {
+                        const subRef = collection(db, 'jantares', id, sub);
+                        const snapshot = await getDocs(subRef);
+                        const deletePromises = snapshot.docs.map(d => deleteDoc(d.ref));
+                        await Promise.all(deletePromises);
+                    }
                     await deleteDoc(doc(db, 'jantares', id));
                 }
             }
         });
         
+        async function openChoicesModal(jantarId) {
+            const jantarDoc = await getDoc(doc(db, 'jantares', jantarId));
+            if (!jantarDoc.exists()) return;
+            const jantarData = jantarDoc.data();
+            const choicesListDiv = document.getElementById('choices-list');
+
+            document.getElementById('choices-modal-title').textContent = `Escolhas para o Jantar de ${new Date(jantarData.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}`;
+            
+            choicesListDiv.innerHTML = '<p>Carregando escolhas...</p>';
+            choicesModal.classList.remove('hidden');
+
+            const choicesRef = collection(db, 'jantares', jantarId, 'escolhas');
+            const choicesSnapshot = await getDocs(choicesRef);
+
+            let html = '';
+            if (choicesSnapshot.empty) {
+                html = '<p class="text-stone-500">Nenhum cliente fez suas escolhas ainda.</p>';
+            } else {
+                choicesSnapshot.forEach(doc => {
+                    const escolha = doc.data();
+                    const entrada = (escolha.entrada && escolha.entrada.itemName) ? escolha.entrada.itemName : 'Não escolhida';
+                    const principal = (escolha.principal && escolha.principal.itemName) ? escolha.principal.itemName : 'Não escolhido';
+                    const sobremesa = (escolha.sobremesa && escolha.sobremesa.itemName) ? escolha.sobremesa.itemName : 'Não escolhida';
+                    
+                    html += `
+                        <div class="bg-gray-50 p-3 rounded-md border">
+                            <p class="font-bold">${escolha.userName}</p>
+                            <ul class="list-disc list-inside text-sm text-gray-700 mt-1">
+                                <li><strong>Entrada:</strong> ${entrada}</li>
+                                <li><strong>Principal:</strong> ${principal}</li>
+                                <li><strong>Sobremesa:</strong> ${sobremesa}</li>
+                            </ul>
+                        </div>
+                    `;
+                });
+            }
+            choicesListDiv.innerHTML = html;
+        }
+
         async function openVitrineManagementModal(jantarId) {
             currentJantarId = jantarId;
             const jantarDoc = await getDoc(doc(db, 'jantares', jantarId));
@@ -423,15 +522,29 @@
                 } else {
                     snapshot.forEach(doc => {
                         const avaliacao = doc.data();
+                        const entrada = avaliacao.entrada || {};
+                        const principal = avaliacao.principal || {};
+                        const sobremesa = avaliacao.sobremesa || {};
                         html += `
                             <div class="bg-gray-50 p-3 rounded-md border">
                                 <div class="flex justify-between items-start">
                                     <p class="font-bold">${avaliacao.userName}</p>
                                     <button data-avaliacao-id="${doc.id}" class="delete-avaliacao-btn text-red-500 hover:text-red-700 text-sm">Remover</button>
                                 </div>
-                                <p class="text-sm"><strong>Entrada:</strong> (${avaliacao.entrada.rating}/10) ${avaliacao.entrada.comment || ''}</p>
-                                <p class="text-sm"><strong>Principal:</strong> (${avaliacao.principal.rating}/10) ${avaliacao.principal.comment || ''}</p>
-                                <p class="text-sm"><strong>Sobremesa:</strong> (${avaliacao.sobremesa.rating}/10) ${avaliacao.sobremesa.comment || ''}</p>
+                                <div class="mt-2 text-sm space-y-1 border-t pt-2">
+                                     <p class="font-semibold">Escolhas do Menu:</p>
+                                     <ul class="list-disc list-inside text-gray-700">
+                                        <li><strong>Entrada:</strong> ${entrada.itemName || 'Não escolhida'}</li>
+                                        <li><strong>Principal:</strong> ${principal.itemName || 'Não escolhido'}</li>
+                                        <li><strong>Sobremesa:</strong> ${sobremesa.itemName || 'Não escolhida'}</li>
+                                     </ul>
+                                     <p class="font-semibold pt-2">Avaliações:</p>
+                                     <div class="pl-2 text-gray-700">
+                                        <p><strong>Entrada:</strong> (${entrada.rating || 'N/A'}/10) - <em>${entrada.comment || 'Sem comentário'}</em></p>
+                                        <p><strong>Principal:</strong> (${principal.rating || 'N/A'}/10) - <em>${principal.comment || 'Sem comentário'}</em></p>
+                                        <p><strong>Sobremesa:</strong> (${sobremesa.rating || 'N/A'}/10) - <em>${sobremesa.comment || 'Sem comentário'}</em></p>
+                                     </div>
+                                </div>
                             </div>
                         `;
                     });
@@ -456,6 +569,43 @@
                 }
             }
         });
+
+        // --- Lógica do Menu Dinâmico ---
+        function addMenuItem(type, data = {}) {
+            const container = document.getElementById(`${type}-items`);
+            if (container.children.length >= 3) {
+                alert(`Você pode adicionar no máximo 3 opções de ${type}.`);
+                return;
+            }
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'menu-item border-t pt-3';
+            itemDiv.innerHTML = `
+                <div class="flex justify-end">
+                    <button type="button" class="remove-menu-item-btn text-red-500 hover:text-red-700 text-xs">Remover</button>
+                </div>
+                <input type="text" placeholder="Nome da Opção" data-field="nome" class="w-full p-2 border rounded-md mb-2" value="${data.nome || ''}" required>
+                <textarea placeholder="Descrição da Opção" data-field="descricao" rows="2" class="w-full p-2 border rounded-md mb-2">${data.descricao || ''}</textarea>
+                <input type="url" placeholder="URL da Foto da Opção" data-field="foto" class="w-full p-2 border rounded-md" value="${data.foto || ''}">
+            `;
+            container.appendChild(itemDiv);
+        }
+
+        jantarModal.addEventListener('click', (e) => {
+            if (e.target.classList.contains('add-menu-item-btn')) {
+                addMenuItem(e.target.dataset.type);
+            }
+            if (e.target.classList.contains('remove-menu-item-btn')) {
+                const itemDiv = e.target.closest('.menu-item');
+                const container = itemDiv.parentElement;
+                // Não permite remover o último item
+                if (container.children.length > 1) {
+                    itemDiv.remove();
+                } else {
+                    alert('Deve haver pelo menos uma opção.');
+                }
+            }
+        });
+
 
         async function initializeAdminPanel() {
             try {
