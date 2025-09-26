@@ -372,7 +372,7 @@
                 if (jantarSnap.exists()) {
                     const jantarData = jantarSnap.data();
                     const date = new Date(jantarData.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-                    const message = `Olá! Você foi convidado para um Jantar Exclusivo no dia ${date}. Aguardamos sua presença!`;
+                    const message = `Olá! Você foi convidado para um Jantar Exclusivo no dia ${date}. Acesse o site para confirmar sua presença e escolher seu menu: https://jantar-lake.vercel.app/index.html`;
                     const encodedMessage = encodeURIComponent(message);
                     const whatsappUrl = `https://api.whatsapp.com/send?text=${encodedMessage}`;
                     window.open(whatsappUrl, '_blank');
