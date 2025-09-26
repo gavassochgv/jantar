@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cardápio Interativo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Lato', sans-serif; }
+        h1, h2, h3 { font-family: 'Playfair Display', serif; }
+        .form-radio {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            border-radius: 50%;
+            width: 1.25em;
+            height: 1.25em;
+            border: 2px solid #d1d5db;
+            transition: 0.2s all linear;
+            margin-right: 0.5em;
+            position: relative;
+            top: 4px;
+        }
+        .form-radio:checked {
+            border: 6px solid #f97316;
+        }
+    </style>
+</head>
+<body class="bg-amber-50 text-stone-800">
+
+    <!-- Navegação -->
+    <nav class="bg-white shadow-md p-4 flex justify-between items-center">
+        <h1 class="text-2xl text-orange-600">Jantares Exclusivos</h1>
+        <div>
+            <button id="change-user-btn" class="hidden text-stone-600 hover:text-orange-600 mr-4">Trocar Usuário</button>
+            <a href="admin.html" class="text-stone-600 hover:text-orange-600 mr-4">Admin</a>
+            <a href="vitrine.html" class="text-stone-600 hover:text-orange-600">Vitrine</a>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-8">
+        <!-- Seção de Login do Usuário -->
+        <div id="user-login-section" class="max-w-2xl mx-auto text-center">
+            <h2 class="text-4xl mb-4">Bem-vindo!</h2>
+            <p class="text-stone-600 mb-6">Clique no seu nome para ver o convite do jantar.</p>
+            <div id="user-list-container" class="flex flex-wrap justify-center gap-4 mt-8">
+                <p>Carregando usuários...</p>
+            </div>
+        </div>
+
+        <!-- Seção do Jantar (inicialmente oculta) -->
+        <div id="jantar-section" class="hidden max-w-4xl mx-auto">
+            <!-- Detalhes do Jantar -->
+            <div id="jantar-details" class="text-center bg-white p-8 rounded-xl shadow-lg mb-8">
+                <!-- Conteúdo dinâmico -->
+            </div>
+
+            <!-- Container para Seleção de Menu ou Avaliação -->
+            <div id="menu-selection-container">
+                 <!-- Conteúdo dinâmico aqui -->
+            </div>
+
+            <!-- Container para Avaliação -->
+            <div id="avaliacao-container" class="hidden">
+                 <!-- Conteúdo dinâmico aqui -->
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, query, where, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD89Q_VbBBshMKOV53oT_4Nyhd2d_ZJ2bw",
+            authDomain: "cardapio-abc1e.firebaseapp.com",
+            projectId: "cardapio-abc1e",
+            storageBucket: "cardapio-abc1e.appspot.com",
+            messagingSenderId: "1052047749183",
+            appId: "1:1052047749183:web:1baac736b27f0effed088a",
+            measurementId: "G-VZN8FLXRCN"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        const userListContainer = document.getElementById('user-list-container');
+        const userLoginSection = document.getElementById('user-login-section');
+        const jantarSection = document.getElementById('jantar-section');
+        const jantarDetailsDiv = document.getElementById('jantar-details');
+        const menuSelectionContainer = document.getElementById('menu-selection-container');
+        const avaliacaoContainer = document.getElementById('avaliacao-container');
+        const changeUserBtn = document.getElementById('change-user-btn');
+        
+        let currentJantarId = null;
+        let selectedUserId = null;
+        let selectedUserName = null;
+
+        userListContainer.addEventListener('click', (e) => {
+            const userButton = e.target.closest('.user-button');
+            if (!userButton) return;
+
+            selectedUserId = userButton.dataset.id;
+            selectedUserName = userButton.dataset.name;
+
+            if (selectedUserId) {
+                userLoginSection.classList.add('hidden');
+                jantarSection.classList.remove('hidden');
+                changeUserBtn.classList.remove('hidden');
+                loadJantarForUser(selectedUserId);
+            }
+        });
+        
+        changeUserBtn.addEventListener('click', () => {
+            selectedUserId = null;
+            selectedUserName = null;
+            currentJantarId = null;
+
+            userLoginSection.classList.remove('hidden');
+            jantarSection.classList.add('hidden');
+            changeUserBtn.classList.add('hidden');
+        });
+
+        function loadJantarForUser(userId) {
+            const q = query(
+                collection(db, "jantares"), 
+                where("convidados", "array-contains", userId),
+                where("status", "in", ["agendado", "em-sessao", "finalizado"])
+            );
+
+            onSnapshot(q, async (snapshot) => {
+                jantarSection.classList.remove('hidden');
+                if (!snapshot.empty) {
+                    const jantarDoc = snapshot.docs[0]; // Pega o primeiro convite ativo
+                    currentJantarId = jantarDoc.id;
+                    const jantar = jantarDoc.data();
+
+                    jantarDetailsDiv.innerHTML = `
+                        <p class="text-stone-500">${new Date(jantar.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</p>
+                        <h2 class="text-4xl mt-2">Convite Especial</h2>
+                        <p class="mt-4 text-stone-600">Você foi convidado para um jantar exclusivo. O status atual é: <span class="font-bold">${jantar.status}</span>.</p>
+                    `;
+                    
+                    menuSelectionContainer.innerHTML = '';
+                    avaliacaoContainer.innerHTML = '';
+                    avaliacaoContainer.classList.add('hidden');
+
+                    if (jantar.status === 'agendado' || jantar.status === 'em-sessao') {
+                        const escolhaDoc = await getDoc(doc(db, 'jantares', currentJantarId, 'escolhas', selectedUserId));
+                        if (escolhaDoc.exists()) {
+                            showUserChoices(escolhaDoc.data());
+                        } else {
+                            showMenuSelection(jantar.menu);
+                        }
+                    } else if (jantar.status === 'finalizado') {
+                        const avaliacaoDoc = await getDoc(doc(db, 'jantares', currentJantarId, 'avaliacoes', selectedUserId));
+                        if(avaliacaoDoc.exists()){
+                            menuSelectionContainer.innerHTML = `<div class="bg-white p-8 rounded-xl shadow-lg text-center"><h3 class="text-2xl font-bold mb-4">Obrigado pela sua avaliação!</h3><p>Agradecemos por compartilhar sua opinião.</p></div>`;
+                        } else {
+                            showAvaliacaoForm(jantar.menu);
+                        }
+                    }
+
+                } else {
+                    currentJantarId = null;
+                    jantarDetailsDiv.innerHTML = `<h2 class="text-3xl">Nenhum convite ativo</h2><p class="mt-2">Você não tem nenhum convite para jantar no momento.</p>`;
+                    menuSelectionContainer.innerHTML = '';
+                    avaliacaoContainer.innerHTML = '';
+                }
+            }, (error) => {
+                console.error("Erro ao buscar jantar:", error);
+                jantarDetailsDiv.innerHTML = `<h2 class="text-3xl text-red-500">Erro ao carregar</h2><p class="mt-2">Não foi possível buscar as informações do jantar.</p>`;
+            });
+        }
+
+        function showUserChoices(choices) {
+             menuSelectionContainer.innerHTML = `
+                <div class="bg-white p-8 rounded-xl shadow-lg">
+                    <h3 class="text-2xl font-bold text-center mb-6">Suas Escolhas Foram Registradas</h3>
+                    <div class="space-y-4 text-center">
+                        <p><strong>Entrada:</strong> ${choices.entrada}</p>
+                        <p><strong>Prato Principal:</strong> ${choices.principal}</p>
+                        <p><strong>Sobremesa:</strong> ${choices.sobremesa}</p>
+                    </div>
+                     <p class="text-center mt-6 text-sm text-stone-500">Aguarde o status do jantar ser finalizado para poder avaliar.</p>
+                </div>
+            `;
+        }
+
+        function showMenuSelection(menu) {
+            const createMenuItems = (items, category) => {
+                return items.map((item) => `
+                    <label class="block bg-gray-50 p-4 rounded-md hover:bg-amber-100 cursor-pointer transition">
+                        <div class="flex items-start gap-4">
+                            <input type="radio" name="${category}" value="${item.nome}" class="form-radio text-orange-600" required>
+                            <div class="flex-1">
+                                <div class="flex justify-between items-center">
+                                    <h4 class="font-bold">${item.nome}</h4>
+                                    ${item.foto ? `<img src="${item.foto}" alt="${item.nome}" class="w-24 h-16 object-cover rounded-md ml-4">` : ''}
+                                </div>
+                                <p class="text-sm text-stone-600 mt-1">${item.descricao}</p>
+                            </div>
+                        </div>
+                    </label>
+                `).join('');
+            };
+
+            menuSelectionContainer.innerHTML = `
+                <form id="menu-selection-form" class="bg-white p-8 rounded-xl shadow-lg">
+                    <h3 class="text-2xl font-bold text-center mb-6">Faça suas Escolhas</h3>
+                    <div class="space-y-6">
+                        <div>
+                            <h4 class="text-xl font-semibold mb-3 border-b pb-2">Entrada</h4>
+                            <div class="space-y-2">${createMenuItems(menu.entrada, 'entrada')}</div>
+                        </div>
+                        <div>
+                            <h4 class="text-xl font-semibold mb-3 border-b pb-2">Prato Principal</h4>
+                            <div class="space-y-2">${createMenuItems(menu.principal, 'principal')}</div>
+                        </div>
+                        <div>
+                            <h4 class="text-xl font-semibold mb-3 border-b pb-2">Sobremesa</h4>
+                            <div class="space-y-2">${createMenuItems(menu.sobremesa, 'sobremesa')}</div>
+                        </div>
+                    </div>
+                    <div class="text-center mt-8">
+                        <button type="submit" class="bg-orange-600 text-white px-8 py-3 rounded-md hover:bg-orange-700 font-bold transition">Confirmar Escolhas</button>
+                    </div>
+                </form>
+            `;
+            document.getElementById('menu-selection-form').addEventListener('submit', handleMenuSelectionSubmit);
+        }
+        
+        async function handleMenuSelectionSubmit(e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const userChoice = {
+                userId: selectedUserId,
+                userName: selectedUserName,
+                entrada: formData.get('entrada'),
+                principal: formData.get('principal'),
+                sobremesa: formData.get('sobremesa'),
+                submittedAt: serverTimestamp()
+            };
+
+            if (!userChoice.entrada || !userChoice.principal || !userChoice.sobremesa) return;
+
+            const button = form.querySelector('button[type="submit"]');
+            button.disabled = true;
+            button.textContent = 'Enviando...';
+            
+            try {
+                const escolhaRef = doc(db, 'jantares', currentJantarId, 'escolhas', selectedUserId);
+                await setDoc(escolhaRef, userChoice);
+                showUserChoices(userChoice);
+            } catch (error) {
+                console.error("Erro ao salvar escolhas: ", error);
+                button.disabled = false;
+                button.textContent = 'Confirmar Escolhas';
+            }
+        }
+        
+        function showAvaliacaoForm(menu) {
+             const createAvaliacaoItem = (item, category) => `
+                <div class="bg-gray-50 p-4 rounded-md">
+                    <h4 class="font-bold text-lg">${item.nome} (${category})</h4>
+                    <p class="text-sm text-stone-600 mt-1 mb-3">${item.descricao}</p>
+                    <label class="block text-sm font-medium mb-1">Sua avaliação (1 a 10):</label>
+                    <input type="range" min="1" max="10" value="8" class="w-full" data-category="${category.toLowerCase()}" name="rating-${category.toLowerCase()}">
+                    <label class="block text-sm font-medium mt-3 mb-1">Comentário:</label>
+                    <textarea placeholder="O que você achou deste prato?" rows="2" class="w-full p-2 border rounded-md" data-category="${category.toLowerCase()}" name="comment-${category.toLowerCase()}"></textarea>
+                </div>
+            `;
+            
+            avaliacaoContainer.classList.remove('hidden');
+            avaliacaoContainer.innerHTML = `
+                <form id="avaliacao-form" class="bg-white p-8 rounded-xl shadow-lg">
+                    <h3 class="text-2xl font-bold text-center mb-6">Avalie o Jantar</h3>
+                    <div class="space-y-4">
+                        ${createAvaliacaoItem(menu.entrada[0], 'Entrada')}
+                        ${createAvaliacaoItem(menu.principal[0], 'Principal')}
+                        ${createAvaliacaoItem(menu.sobremesa[0], 'Sobremesa')}
+                    </div>
+                    <div class="text-center mt-8">
+                        <button type="submit" class="bg-green-600 text-white px-8 py-3 rounded-md hover:bg-green-700 font-bold transition">Enviar Avaliação</button>
+                    </div>
+                </form>
+            `;
+            document.getElementById('avaliacao-form').addEventListener('submit', handleAvaliacaoSubmit);
+        }
+
+        async function handleAvaliacaoSubmit(e) {
+            e.preventDefault();
+            const form = e.target;
+            const getAvaliacaoData = (category) => ({
+                rating: parseInt(form.querySelector(`input[data-category="${category}"]`).value, 10),
+                comment: form.querySelector(`textarea[data-category="${category}"]`).value
+            });
+            
+            const avaliacaoData = {
+                userId: selectedUserId,
+                userName: selectedUserName,
+                entrada: getAvaliacaoData('entrada'),
+                principal: getAvaliacaoData('principal'),
+                sobremesa: getAvaliacaoData('sobremesa'),
+                submittedAt: serverTimestamp()
+            };
+
+            const button = form.querySelector('button[type="submit"]');
+            button.disabled = true;
+            button.textContent = 'Enviando...';
+
+            try {
+                const avaliacaoRef = doc(db, 'jantares', currentJantarId, 'avaliacoes', selectedUserId);
+                await setDoc(avaliacaoRef, avaliacaoData);
+                avaliacaoContainer.innerHTML = `<div class="bg-white p-8 rounded-xl shadow-lg text-center"><h3 class="text-2xl font-bold mb-4">Obrigado pela sua avaliação!</h3><p>Agradecemos por compartilhar sua opinião.</p></div>`;
+            } catch (error) {
+                console.error("Erro ao enviar avaliação: ", error);
+                button.disabled = false;
+                button.textContent = 'Enviar Avaliação';
+            }
+        }
+        
+        async function main() {
+             try {
+                await signInAnonymously(auth);
+                onSnapshot(collection(db, 'users'), (snapshot) => {
+                    if (snapshot.empty) {
+                        userListContainer.innerHTML = '<p>Nenhum usuário cadastrado.</p>';
+                        return;
+                    }
+                    let userButtons = '';
+                    snapshot.docs.sort((a, b) => a.data().name.localeCompare(b.data().name))
+                        .forEach(doc => {
+                            const user = doc.data();
+                            userButtons += `<button data-id="${doc.id}" data-name="${user.name}" class="user-button bg-white text-stone-800 font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-orange-100 transition-colors">${user.name}</button>`;
+                        });
+                    userListContainer.innerHTML = userButtons;
+                });
+            } catch (error) {
+                console.error("Erro na autenticação ou ao carregar usuários: ", error);
+                userListContainer.innerHTML = '<p class="text-red-500">Erro ao carregar usuários.</p>';
+            }
+        }
+        
+        main();
+    </script>
+</body>
+</html>
+
