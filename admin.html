@@ -48,7 +48,7 @@
         <div class="container mx-auto p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
 
             <!-- Coluna 1: Gerenciar Usuários e Destaque da Vitrine -->
-            <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg flex flex-col gap-8">
+            <div class="lg-col-span-1 bg-white p-6 rounded-xl shadow-lg flex flex-col gap-8">
                 <div>
                     <h2 class="text-3xl mb-6 border-b pb-3">Gerenciar Usuários</h2>
                     <form id="add-user-form" class="flex gap-2 mb-4">
@@ -291,7 +291,7 @@
                             actions = `<button data-id="${doc.id}" class="manage-vitrine-btn bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600">Gerenciar Vitrine</button>`;
                             break;
                     }
-                    jantaresHtml += `<div class="bg-gray-50 p-4 rounded-lg shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4"><div><p class="font-bold text-lg">${new Date(jantar.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</p><p>Convidados: ${jantar.convidados ? jantar.convidados.length : 0}</p></div><div class="flex items-center gap-4"><span class="text-sm font-medium px-2 py-1 rounded-full ${statusClass}">${jantar.status}</span><div class="flex items-center gap-2">${actions}<button data-id="${doc.id}" class="edit-jantar-btn bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600">Editar</button><button data-id="${doc.id}" class="delete-jantar-btn bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">Excluir</button></div></div></div>`;
+                    jantaresHtml += `<div class="bg-gray-50 p-4 rounded-lg shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4"><div><p class="font-bold text-lg">${new Date(jantar.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</p><p>Convidados: ${jantar.convidados ? jantar.convidados.length : 0}</p></div><div class="flex items-center gap-4"><span class="text-sm font-medium px-2 py-1 rounded-full ${statusClass}">${jantar.status}</span><div class="flex items-center gap-2">${actions}<button data-id="${doc.id}" class="edit-jantar-btn bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600">Editar</button><button data-id="${doc.id}" class="whatsapp-jantar-btn bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600">WhatsApp</button><button data-id="${doc.id}" class="delete-jantar-btn bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">Excluir</button></div></div></div>`;
                 });
                 jantarListDiv.innerHTML = jantaresHtml || '<p>Nenhum jantar criado ainda.</p>';
             });
@@ -365,6 +365,20 @@
             const target = e.target;
             const id = target.dataset.id;
             if (!id) return;
+
+            if (target.classList.contains('whatsapp-jantar-btn')) {
+                const jantarRef = doc(db, 'jantares', id);
+                const jantarSnap = await getDoc(jantarRef);
+                if (jantarSnap.exists()) {
+                    const jantarData = jantarSnap.data();
+                    const date = new Date(jantarData.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                    const message = `Olá! Você foi convidado para um Jantar Exclusivo no dia ${date}. Aguardamos sua presença!`;
+                    const encodedMessage = encodeURIComponent(message);
+                    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodedMessage}`;
+                    window.open(whatsappUrl, '_blank');
+                }
+                return;
+            }
 
             if (target.classList.contains('edit-jantar-btn')) {
                 openJantarModalForEdit(id);
