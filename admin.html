@@ -85,7 +85,7 @@
         <!-- Modal para Criar/Editar Jantar -->
         <div id="jantar-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-40">
             <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-                <h3 id="modal-title" class="text-3xl mb-6">Criar Novo Jantar</h3>
+                <h3 id="jantar-modal-title" class="text-3xl mb-6">Criar Novo Jantar</h3>
                 <form id="jantar-form" class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -199,11 +199,27 @@
         const addUserForm = document.getElementById('add-user-form');
         const adminUserListDiv = document.getElementById('admin-user-list');
         const jantarListDiv = document.getElementById('jantar-list');
+        let currentEditingJantarId = null;
         
         // Lógica dos Modais
         const jantarModal = document.getElementById('jantar-modal');
-        document.getElementById('open-jantar-modal-btn').onclick = () => jantarModal.classList.remove('hidden');
-        document.getElementById('close-jantar-modal-btn').onclick = () => jantarModal.classList.add('hidden');
+        const jantarForm = document.getElementById('jantar-form');
+
+        const openCreateJantarModal = () => {
+            currentEditingJantarId = null;
+            jantarForm.reset();
+            document.getElementById('jantar-modal-title').textContent = 'Criar Novo Jantar';
+            jantarModal.classList.remove('hidden');
+        };
+
+        const closeJantarModal = () => {
+            jantarModal.classList.add('hidden');
+            currentEditingJantarId = null;
+        };
+        
+        document.getElementById('open-jantar-modal-btn').addEventListener('click', openCreateJantarModal);
+        document.getElementById('close-jantar-modal-btn').addEventListener('click', closeJantarModal);
+
 
         // NOVO: Lógica do modal de gerenciar vitrine
         const vitrineManageModal = document.getElementById('vitrine-manage-modal');
@@ -237,7 +253,7 @@
                 snapshot.forEach(doc => {
                     const user = doc.data();
                     usersHtml += `<div class="flex justify-between items-center bg-gray-50 p-2 rounded-md"><span>${user.name}</span><button data-id="${doc.id}" class="delete-user-btn text-red-500 hover:text-red-700">Excluir</button></div>`;
-                    inviteUsersHtml += `<label class="flex items-center space-x-2 p-1 rounded hover:bg-amber-100 cursor-pointer"><input type="checkbox" value="${doc.id}" class="form-checkbox rounded text-orange-600"><span>${user.name}</span></label>`;
+                    inviteUsersHtml += `<label class="flex items-center space-x-2 p-1 rounded hover:bg-amber-100 cursor-pointer"><input type="checkbox" name="convidado" value="${doc.id}" class="form-checkbox rounded text-orange-600"><span>${user.name}</span></label>`;
                 });
                 adminUserListDiv.innerHTML = usersHtml || 'Nenhum usuário cadastrado.';
                 document.getElementById('invite-user-list').innerHTML = inviteUsersHtml;
@@ -245,7 +261,6 @@
             
             // Listar jantares e atualizar destaque
             onSnapshot(collection(db, 'jantares'), (snapshot) => {
-                // Lógica para Destaque da Vitrine
                 const jantaresFinalizadosComFoto = snapshot.docs.map(doc => doc.data()).filter(j => j.status === 'finalizado' && j.vitrineImage).sort((a, b) => new Date(b.date) - new Date(a.date));
                 const destaqueDiv = document.getElementById('vitrine-destaque-admin');
                 if (destaqueDiv) {
@@ -257,7 +272,6 @@
                     }
                 }
 
-                // Lógica para listar todos os jantares
                 let jantaresHtml = '';
                 const sortedDocs = snapshot.docs.sort((a, b) => (a.data().createdAt?.seconds || 0) < (b.data().createdAt?.seconds || 0) ? 1 : -1);
                 sortedDocs.forEach(doc => {
@@ -277,7 +291,7 @@
                             actions = `<button data-id="${doc.id}" class="manage-vitrine-btn bg-purple-500 text-white px-3 py-1 rounded hover:bg-purple-600">Gerenciar Vitrine</button>`;
                             break;
                     }
-                    jantaresHtml += `<div class="bg-gray-50 p-4 rounded-lg shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4"><div><p class="font-bold text-lg">${new Date(jantar.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</p><p>Convidados: ${jantar.convidados ? jantar.convidados.length : 0}</p></div><div class="flex items-center gap-4"><span class="text-sm font-medium px-2 py-1 rounded-full ${statusClass}">${jantar.status}</span><div class="flex items-center gap-2">${actions}<button data-id="${doc.id}" class="delete-jantar-btn bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">Excluir</button></div></div></div>`;
+                    jantaresHtml += `<div class="bg-gray-50 p-4 rounded-lg shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4"><div><p class="font-bold text-lg">${new Date(jantar.date).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}</p><p>Convidados: ${jantar.convidados ? jantar.convidados.length : 0}</p></div><div class="flex items-center gap-4"><span class="text-sm font-medium px-2 py-1 rounded-full ${statusClass}">${jantar.status}</span><div class="flex items-center gap-2">${actions}<button data-id="${doc.id}" class="edit-jantar-btn bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600">Editar</button><button data-id="${doc.id}" class="delete-jantar-btn bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">Excluir</button></div></div></div>`;
                 });
                 jantarListDiv.innerHTML = jantaresHtml || '<p>Nenhum jantar criado ainda.</p>';
             });
@@ -289,9 +303,9 @@
                 await deleteDoc(doc(db, 'users', e.target.dataset.id));
             }
         });
-
-        // Salvar jantar
-        document.getElementById('jantar-form').addEventListener('submit', async (e) => {
+        
+        // Salvar ou Atualizar Jantar
+        jantarForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const getMenuItems = (containerId) => {
                 const c = document.getElementById(containerId);
@@ -302,18 +316,60 @@
                 date: document.getElementById('jantar-date').value,
                 vitrineImage: document.getElementById('vitrine-image').value,
                 menu: { entrada: getMenuItems('menu-entrada-container'), principal: getMenuItems('menu-principal-container'), sobremesa: getMenuItems('menu-sobremesa-container') },
-                convidados: invitedUsers, status: 'agendado', createdAt: serverTimestamp()
+                convidados: invitedUsers,
             };
-            await addDoc(collection(db, 'jantares'), jantarData);
-            jantarModal.classList.add('hidden');
-            e.target.reset();
+
+            if (currentEditingJantarId) {
+                await updateDoc(doc(db, 'jantares', currentEditingJantarId), jantarData);
+            } else {
+                jantarData.status = 'agendado';
+                jantarData.createdAt = serverTimestamp();
+                await addDoc(collection(db, 'jantares'), jantarData);
+            }
+            closeJantarModal();
         });
 
-        // Gerenciar status do jantar E ABRIR MODAL DA VITRINE
+        const openJantarModalForEdit = async (jantarId) => {
+            jantarForm.reset();
+            const jantarRef = doc(db, 'jantares', jantarId);
+            const jantarSnap = await getDoc(jantarRef);
+            if (!jantarSnap.exists()) return;
+            
+            const jantarData = jantarSnap.data();
+            currentEditingJantarId = jantarId;
+
+            document.getElementById('jantar-modal-title').textContent = 'Editar Jantar';
+            document.getElementById('jantar-date').value = jantarData.date;
+            document.getElementById('vitrine-image').value = jantarData.vitrineImage || '';
+
+            const populateMenuItem = (containerId, itemData) => {
+                const container = document.getElementById(containerId);
+                if (itemData && itemData[0]) {
+                    container.querySelector('input[type="text"]').value = itemData[0].nome || '';
+                    container.querySelector('textarea').value = itemData[0].descricao || '';
+                    container.querySelector('input[type="url"]').value = itemData[0].foto || '';
+                }
+            };
+            populateMenuItem('menu-entrada-container', jantarData.menu.entrada);
+            populateMenuItem('menu-principal-container', jantarData.menu.principal);
+            populateMenuItem('menu-sobremesa-container', jantarData.menu.sobremesa);
+
+            document.querySelectorAll('#invite-user-list input[name="convidado"]').forEach(checkbox => {
+                checkbox.checked = jantarData.convidados.includes(checkbox.value);
+            });
+            jantarModal.classList.remove('hidden');
+        };
+
+        // Gerenciar status, edição e exclusão de jantares
         jantarListDiv.addEventListener('click', async (e) => {
             const target = e.target;
             const id = target.dataset.id;
             if (!id) return;
+
+            if (target.classList.contains('edit-jantar-btn')) {
+                openJantarModalForEdit(id);
+                return;
+            }
 
             let newStatus = '';
             if (target.classList.contains('start-jantar-btn')) newStatus = 'em-sessao';
@@ -326,19 +382,11 @@
             }
             if (target.classList.contains('delete-jantar-btn')) {
                 if (confirm('Tem certeza que deseja excluir este jantar? Todas as avaliações relacionadas também serão excluídas.')) {
-                    try {
-                        const avaliacoesRef = collection(db, 'jantares', id, 'avaliacoes');
-                        const avaliacoesSnapshot = await getDocs(avaliacoesRef);
-                        const deletePromises = [];
-                        avaliacoesSnapshot.forEach((doc) => {
-                            deletePromises.push(deleteDoc(doc.ref));
-                        });
-                        await Promise.all(deletePromises);
-                        await deleteDoc(doc(db, 'jantares', id));
-                    } catch (error) {
-                        console.error("Erro ao excluir jantar: ", error);
-                        alert('Ocorreu um erro ao excluir o jantar.');
-                    }
+                    const avaliacoesRef = collection(db, 'jantares', id, 'avaliacoes');
+                    const avaliacoesSnapshot = await getDocs(avaliacoesRef);
+                    const deletePromises = avaliacoesSnapshot.docs.map(doc => deleteDoc(doc.ref));
+                    await Promise.all(deletePromises);
+                    await deleteDoc(doc(db, 'jantares', id));
                 }
             }
         });
